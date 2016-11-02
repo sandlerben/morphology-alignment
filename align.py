@@ -61,6 +61,25 @@ def get_segment_feature_counts(word_to_features, word_to_segments):
     return segment_feature_counts
 
 
+def normalize_segment_feature_counts(segment_feature_counts):
+    segment_feature_counts = copy.deepcopy(segment_feature_counts)
+
+    # feature instance (as string like feature: instance) -> global count
+    global_feature_counts = collections.defaultdict(int)
+
+    for segment in segment_feature_counts:
+        for feature_instance in segment_feature_counts[segment]:
+            global_feature_counts[feature_instance] += segment_feature_counts[
+                segment][feature_instance]
+
+    for segment in segment_feature_counts:
+        for feature_instance in segment_feature_counts[segment]:
+            segment_feature_counts[segment][feature_instance] /= float(
+                global_feature_counts[feature_instance])
+
+    return segment_feature_counts
+
+
 def write_segment_feature_counts(segment_feature_counts):
     segment_feature_counts = copy.deepcopy(segment_feature_counts)
 
@@ -94,5 +113,7 @@ if __name__ == '__main__':
     word_to_segments = get_word_to_segments(args.segment_file)
     segment_feature_counts = get_segment_feature_counts(word_to_features,
                                                         word_to_segments)
-    write_segment_feature_counts(segment_feature_counts)
-    print segment_feature_counts['ed']
+    normalized_segment_feature_counts = normalize_segment_feature_counts(
+        segment_feature_counts)
+    write_segment_feature_counts(normalized_segment_feature_counts)
+    print normalized_segment_feature_counts['ed']
