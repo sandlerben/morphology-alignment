@@ -52,11 +52,10 @@ def get_segment_feature_counts(word_to_features, word_to_segments):
             for segment in segments_for_word:
                 for feature_mapping in word_to_features[word]:
                     for feature_name in feature_mapping:
-                        for feature_instance in feature_mapping[feature_name]:
-                            feature_and_instance = '{}: {}'.format(
-                                feature_name, feature_instance)
-                            segment_feature_counts[segment][
-                                feature_and_instance] += 1
+                        feature_and_instance = '{}: {}'.format(
+                            feature_name, feature_mapping[feature_name])
+                        segment_feature_counts[segment][
+                            feature_and_instance] += 1
 
     return segment_feature_counts
 
@@ -107,10 +106,10 @@ def normalize_segment_feature_counts(segment_feature_counts):
     return segment_feature_counts
 
 
-def write_segment_feature_counts(segment_feature_counts):
+def write_segment_feature_counts(output_file, segment_feature_counts):
     segment_feature_counts = copy.deepcopy(segment_feature_counts)
 
-    with open('out.csv', 'w') as csvfile:
+    with open(output_file, 'w') as csvfile:
         fieldnames_set = set()
         rows = []  # list of dictionaries. each dictionary is one segment.
 
@@ -134,6 +133,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='TODO')
     parser.add_argument('--feature_file')
     parser.add_argument('--segment_file')
+    parser.add_argument('--output_file')
     args = parser.parse_args()
 
     word_to_features = get_word_to_features(args.feature_file)
@@ -143,5 +143,5 @@ if __name__ == '__main__':
     segment_feature_counts = remove_roots_from_segment_feature_counts(segment_feature_counts, word_to_features, word_to_segments)
     normalized_segment_feature_counts = normalize_segment_feature_counts(
         segment_feature_counts)
-    write_segment_feature_counts(normalized_segment_feature_counts)
+    write_segment_feature_counts(args.output_file, normalized_segment_feature_counts)
     print normalized_segment_feature_counts['ed']
