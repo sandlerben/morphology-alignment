@@ -85,7 +85,37 @@ def remove_roots_from_segment_feature_counts(segment_feature_counts, word_to_fea
     return segment_feature_counts
 
 
-def normalize_segment_feature_counts(segment_feature_counts):
+def normalize_segment_feature_counts_by_feature_and_segment(segment_feature_counts):
+    segment_feature_counts = copy.deepcopy(segment_feature_counts)
+
+    # feature instance (as string like feature: instance) -> global count
+    global_feature_counts = collections.defaultdict(int)
+
+    # first, compute global_feature_counts
+    for segment in segment_feature_counts:
+        for feature_instance in segment_feature_counts[segment]:
+            global_feature_counts[feature_instance] += segment_feature_counts[
+                segment][feature_instance]
+
+    # segment -> global count
+    global_segment_counts = collections.defaultdict(int)
+
+    # second, compute global_segment_counts
+    for segment in segment_feature_counts:
+        sum_of_feature_counts = 0
+        for feature_instance in segment_feature_counts[segment]:
+            sum_of_feature_counts += segment_feature_counts[segment][feature_instance]
+        global_segment_counts[segment] = sum_of_feature_counts
+
+    # third, normalize segment_feature_counts
+    for segment in segment_feature_counts:
+        for feature_instance in segment_feature_counts[segment]:
+            segment_feature_counts[segment][feature_instance] /= (float(
+                global_feature_counts[feature_instance]) * float(global_segment_counts[segment]))
+
+    return segment_feature_counts
+
+def normalize_segment_feature_counts_by_feature(segment_feature_counts):
     segment_feature_counts = copy.deepcopy(segment_feature_counts)
 
     # feature instance (as string like feature: instance) -> global count
@@ -102,6 +132,20 @@ def normalize_segment_feature_counts(segment_feature_counts):
         for feature_instance in segment_feature_counts[segment]:
             segment_feature_counts[segment][feature_instance] /= float(
                 global_feature_counts[feature_instance])
+
+    return segment_feature_counts
+
+
+def normalize_segment_feature_counts_by_segment(segment_feature_counts):
+    segment_feature_counts = copy.deepcopy(segment_feature_counts)
+
+    # normalize segment_feature_counts
+    for segment in segment_feature_counts:
+        sum_of_feature_counts = 0
+        for feature_instance in segment_feature_counts[segment]:
+            sum_of_feature_counts += segment_feature_counts[segment][feature_instance]
+        for feature_instance in segment_feature_counts[segment]:
+            segment_feature_counts[segment][feature_instance] /= float(sum_of_feature_counts)
 
     return segment_feature_counts
 
@@ -141,7 +185,6 @@ if __name__ == '__main__':
     segment_feature_counts = get_segment_feature_counts(word_to_features,
                                                         word_to_segments)
     segment_feature_counts = remove_roots_from_segment_feature_counts(segment_feature_counts, word_to_features, word_to_segments)
-    normalized_segment_feature_counts = normalize_segment_feature_counts(
-        segment_feature_counts)
-    write_segment_feature_counts(args.output_file, normalized_segment_feature_counts)
-    print normalized_segment_feature_counts['ed']
+    normalized_segment_feature_counts = normalize_segment_feature_counts_by_feature_and_segment(
+        segment_feature_counts)    
+    write_segment_feature_counts(args.output_file, segment_feature_counts)
