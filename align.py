@@ -105,26 +105,40 @@ def remove_low_frequency_segments(segment_feature_counts, word_to_features, word
 
 
 def combine_allomorphs(segment_feature_counts, word_to_features, word_to_segments):
+    subword_to_segments_missing = collections.defaultdict(set)
+
+    for word in word_to_segments:
+        segments = word_to_segments[word]
+        if len(segments) > 1:
+            for i in xrange(len(segments)):
+                if ''.join(segments[0:i]) + ''.join(segments[i + 1:]) == 'bak':
+                subword_to_segments_missing[''.join(segments[0:i]) + ''.join(segments[i + 1:])].add(segments[i])
+
     # compute mutual information for segment pairs which occur in the same word
     segment_pair_counts = collections.defaultdict(float)
     segment_pair_mutual_info = collections.defaultdict(float)
 
-    for word in word_to_segments:
-        for i in xrange(len(word_to_segments[word])):
-            for j in xrange(i, len(word_to_segments[word])):
-                seg_one = word_to_segments[word][i]
-                seg_two = word_to_segments[word][j]
+    for subword in subword_to_segments_missing:
+        segments_missing = list(subword_to_segments_missing[subword])
+        for i in xrange(len(segments_missing)):
+            for j in xrange(i, len(segments_missing)):
+                seg_one = segments_missing[i]
+                seg_two = segments_missing[j]
                 if seg_one != seg_two and seg_one in segment_feature_counts and seg_two in segment_feature_counts: # TODO: hack
                     segment_pair_counts[min(seg_one, seg_two), max(seg_one, seg_two)] += 1
 
-    total_times_together = sum(segment_pair_counts.values())
-    total_times_one = sum(global_segment_counts.values())
+    # compute global_segment_counts
+    for segment in segment_feature_counts:
+        sum_of_feature_counts = 0
+        for feature_instance in segment_feature_counts[segment]:
+            sum_of_feature_counts += segment_feature_counts[segment][feature_instance]
+        global_segment_counts[segment] = sum_of_feature_counts
 
     for seg_one, seg_two in segment_pair_counts:
-        times_together = segment_pair_counts[seg_one, seg_two] / total_times_together
-        times_for_one = global_segment_counts[seg_one] / total_times_one
-        times_for_two = global_segment_counts[seg_two] / total_times_one
-        segment_pair_mutual_info[seg_one, seg_two] = math.log(times_together / (times_for_one * times_for_two), 2)
+        times_together = segment_pair_counts[seg_one, seg_two]
+        times_for_one = global_segment_counts[seg_one]
+        times_for_two = global_segment_counts[seg_two]
+        segment_pair_mutual_info[seg_one, seg_two] = math.log((times_together * len(word_to_segments)) / (times_for_one * times_for_two), 2)
 
     for key, value in sorted(segment_pair_mutual_info.items(), key=lambda x: x[1]):
         print 'pair {} has mutual information {}'.format(key, value)
@@ -235,7 +249,7 @@ if __name__ == '__main__':
                                                         word_to_segments)
     # segment_feature_counts = remove_low_frequency_segments(segment_feature_counts, word_to_features, word_to_segments, threshold=100)
     # segment_feature_counts = remove_roots_from_segment_feature_counts(segment_feature_counts, word_to_features, word_to_segments)
-    segment_feature_counts = collapse_segment_feature_counts(segment_feature_counts, word_to_features, word_to_segments)
-    normalized_segment_feature_counts = normalize_segment_feature_counts_by_feature(
-        segment_feature_counts)
-    write_segment_feature_counts(args.output_file, normalized_segment_feature_counts, word_to_features, word_to_segments)
+    segment_feature_counts = combine_allomorphs(segment_feature_counts, word_to_features, word_to_segments)
+    # normalized_segment_feature_counts = normalize_segment_feature_counts_by_feature(
+    #     segment_feature_counts)
+    # write_segment_feature_counts(args.output_file, normalized_segment_feature_counts, word_to_features, word_to_segments)
