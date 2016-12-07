@@ -96,7 +96,8 @@ def remove_low_frequency_segments(segment_feature_counts, word_to_features, word
     # second, remove segments with counts below threshold
     for segment in global_segment_counts:
         if global_segment_counts[segment] < threshold:
-            del segment_feature_counts[segment]
+            if segment in segment_feature_counts:
+                del segment_feature_counts[segment]
 
     return segment_feature_counts
 
@@ -148,14 +149,23 @@ def normalize_segment_feature_counts_by_feature(segment_feature_counts):
     return segment_feature_counts
 
 
-def normalize_segment_feature_counts_by_segment(segment_feature_counts):
+def normalize_segment_feature_counts_by_segment(segment_feature_counts, word_to_features, word_to_segments):
+    # segment -> global count
+    global_segment_counts = collections.defaultdict(int)
+
+    # first, compute global_segment_counts
+    for word in word_to_features:
+        if word in word_to_segments:
+            segments_for_word = word_to_segments[word]
+            for segment in segments_for_word:
+                global_segment_counts[segment] += 1
+
     # normalize segment_feature_counts
     for segment in segment_feature_counts:
         sum_of_feature_counts = 0
         for feature_instance in segment_feature_counts[segment]:
-            sum_of_feature_counts += segment_feature_counts[segment][feature_instance]
-        for feature_instance in segment_feature_counts[segment]:
-            segment_feature_counts[segment][feature_instance] /= float(sum_of_feature_counts)
+            segment_feature_counts[segment][feature_instance] /= float(global_segment_counts[segment])
+            segment_feature_counts[segment][feature_instance] = min(segment_feature_counts[segment][feature_instance], 1) # TODO: hack
 
     return segment_feature_counts
 
@@ -204,8 +214,8 @@ if __name__ == '__main__':
     word_to_segments = get_word_to_segments(args.segment_file)
     segment_feature_counts = get_segment_feature_counts(word_to_features,
                                                         word_to_segments)
-    # segment_feature_counts = remove_low_frequency_segments(segment_feature_counts, word_to_features, word_to_segments, threshold=100)
     segment_feature_counts = remove_roots_from_segment_feature_counts(segment_feature_counts, word_to_features, word_to_segments)
+    # segment_feature_counts = remove_low_frequency_segments(segment_feature_counts, word_to_features, word_to_segments, threshold=5)
     normalized_segment_feature_counts = normalize_segment_feature_counts_by_segment(
-        segment_feature_counts)
+        segment_feature_counts, word_to_features, word_to_segments)
     write_segment_feature_counts(args.output_file, normalized_segment_feature_counts, word_to_features, word_to_segments)
