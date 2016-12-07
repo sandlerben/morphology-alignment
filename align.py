@@ -4,7 +4,7 @@ import json
 import collections
 import operator
 import math
-
+import itertools
 
 def get_word_to_features(feature_file):
     with open(feature_file, 'rb') as f:
@@ -111,7 +111,6 @@ def combine_allomorphs(segment_feature_counts, word_to_features, word_to_segment
         segments = word_to_segments[word]
         if len(segments) > 1:
             for i in xrange(len(segments)):
-                if ''.join(segments[0:i]) + ''.join(segments[i + 1:]) == 'bak':
                 subword_to_segments_missing[''.join(segments[0:i]) + ''.join(segments[i + 1:])].add(segments[i])
 
     # compute mutual information for segment pairs which occur in the same word
@@ -119,15 +118,14 @@ def combine_allomorphs(segment_feature_counts, word_to_features, word_to_segment
     segment_pair_mutual_info = collections.defaultdict(float)
 
     for subword in subword_to_segments_missing:
-        segments_missing = list(subword_to_segments_missing[subword])
-        for i in xrange(len(segments_missing)):
-            for j in xrange(i, len(segments_missing)):
-                seg_one = segments_missing[i]
-                seg_two = segments_missing[j]
+        if len(subword_to_segments_missing[subword]) > 1:
+            segments_missing = subword_to_segments_missing[subword]
+            for seg_one, seg_two in itertools.combinations(segments_missing, 2):
                 if seg_one != seg_two and seg_one in segment_feature_counts and seg_two in segment_feature_counts: # TODO: hack
                     segment_pair_counts[min(seg_one, seg_two), max(seg_one, seg_two)] += 1
 
     # compute global_segment_counts
+    global_segment_counts = collections.defaultdict(int)
     for segment in segment_feature_counts:
         sum_of_feature_counts = 0
         for feature_instance in segment_feature_counts[segment]:
@@ -248,7 +246,7 @@ if __name__ == '__main__':
     segment_feature_counts = get_segment_feature_counts(word_to_features,
                                                         word_to_segments)
     # segment_feature_counts = remove_low_frequency_segments(segment_feature_counts, word_to_features, word_to_segments, threshold=100)
-    # segment_feature_counts = remove_roots_from_segment_feature_counts(segment_feature_counts, word_to_features, word_to_segments)
+    segment_feature_counts = remove_roots_from_segment_feature_counts(segment_feature_counts, word_to_features, word_to_segments)
     segment_feature_counts = combine_allomorphs(segment_feature_counts, word_to_features, word_to_segments)
     # normalized_segment_feature_counts = normalize_segment_feature_counts_by_feature(
     #     segment_feature_counts)
