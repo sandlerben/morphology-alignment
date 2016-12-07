@@ -2,7 +2,6 @@ import argparse
 import csv
 import json
 import collections
-import copy
 import operator
 
 
@@ -61,8 +60,6 @@ def get_segment_feature_counts(word_to_features, word_to_segments):
 
 
 def remove_roots_from_segment_feature_counts(segment_feature_counts, word_to_features, word_to_segments):
-    segment_feature_counts = copy.deepcopy(segment_feature_counts)
-
     # segment -> global count
     global_segment_counts = collections.defaultdict(int)
 
@@ -85,9 +82,26 @@ def remove_roots_from_segment_feature_counts(segment_feature_counts, word_to_fea
     return segment_feature_counts
 
 
-def normalize_segment_feature_counts_by_feature_and_segment(segment_feature_counts):
-    segment_feature_counts = copy.deepcopy(segment_feature_counts)
+def remove_low_frequency_segments(segment_feature_counts, word_to_features, word_to_segments, threshold=100):
+    # segment -> global count
+    global_segment_counts = collections.defaultdict(int)
 
+    # first, compute global_segment_counts
+    for word in word_to_features:
+        if word in word_to_segments:
+            segments_for_word = word_to_segments[word]
+            for segment in segments_for_word:
+                global_segment_counts[segment] += 1
+
+    # second, remove segments with counts below threshold
+    for segment in global_segment_counts:
+        if global_segment_counts[segment] < threshold:
+            del segment_feature_counts[segment]
+
+    return segment_feature_counts
+
+
+def normalize_segment_feature_counts_by_feature_and_segment(segment_feature_counts):
     # feature instance (as string like feature: instance) -> global count
     global_feature_counts = collections.defaultdict(int)
 
@@ -116,8 +130,6 @@ def normalize_segment_feature_counts_by_feature_and_segment(segment_feature_coun
     return segment_feature_counts
 
 def normalize_segment_feature_counts_by_feature(segment_feature_counts):
-    segment_feature_counts = copy.deepcopy(segment_feature_counts)
-
     # feature instance (as string like feature: instance) -> global count
     global_feature_counts = collections.defaultdict(int)
 
@@ -137,8 +149,6 @@ def normalize_segment_feature_counts_by_feature(segment_feature_counts):
 
 
 def normalize_segment_feature_counts_by_segment(segment_feature_counts):
-    segment_feature_counts = copy.deepcopy(segment_feature_counts)
-
     # normalize segment_feature_counts
     for segment in segment_feature_counts:
         sum_of_feature_counts = 0
@@ -150,8 +160,16 @@ def normalize_segment_feature_counts_by_segment(segment_feature_counts):
     return segment_feature_counts
 
 
-def write_segment_feature_counts(output_file, segment_feature_counts):
-    segment_feature_counts = copy.deepcopy(segment_feature_counts)
+def write_segment_feature_counts(output_file, segment_feature_counts, word_to_features, word_to_segments):
+    # segment -> global count
+    global_segment_counts = collections.defaultdict(int)
+
+    # first, compute global_segment_counts
+    for word in word_to_features:
+        if word in word_to_segments:
+            segments_for_word = word_to_segments[word]
+            for segment in segments_for_word:
+                global_segment_counts[segment] += 1
 
     with open(output_file, 'w') as csvfile:
         fieldnames_set = set()
@@ -162,12 +180,14 @@ def write_segment_feature_counts(output_file, segment_feature_counts):
                 fieldnames_set.add(fieldname)
 
             row['Segment'] = segment
+            row['Count'] = global_segment_counts[segment]
             rows.append(row)
 
         rows.sort(key=operator.itemgetter('Segment'))
 
         fieldnames = ['Segment']
         fieldnames.extend(sorted(list(fieldnames_set)))
+        fieldnames.append('Count')
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
@@ -184,7 +204,8 @@ if __name__ == '__main__':
     word_to_segments = get_word_to_segments(args.segment_file)
     segment_feature_counts = get_segment_feature_counts(word_to_features,
                                                         word_to_segments)
+    # segment_feature_counts = remove_low_frequency_segments(segment_feature_counts, word_to_features, word_to_segments, threshold=100)
     segment_feature_counts = remove_roots_from_segment_feature_counts(segment_feature_counts, word_to_features, word_to_segments)
-    normalized_segment_feature_counts = normalize_segment_feature_counts_by_feature_and_segment(
-        segment_feature_counts)    
-    write_segment_feature_counts(args.output_file, segment_feature_counts)
+    normalized_segment_feature_counts = normalize_segment_feature_counts_by_segment(
+        segment_feature_counts)
+    write_segment_feature_counts(args.output_file, normalized_segment_feature_counts, word_to_features, word_to_segments)
